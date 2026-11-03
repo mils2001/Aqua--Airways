@@ -1,4 +1,6 @@
+
 import os
+
 from dotenv import load_dotenv
 from flask import Flask
 from flask_cors import CORS
@@ -6,8 +8,14 @@ from flask_cors import CORS
 from app.config import Config
 from app.extensions import db, migrate, jwt, bcrypt
 from app import models
+
 from app.routes.health import health_bp
 from app.routes.flights import flights_bp
+from app.routes.schedules import schedules_bp
+from app.routes.auth import auth_bp
+from app.routes.bookings import bookings_bp
+from app.routes.payments import payments_bp
+from app.routes.ratings import ratings_bp
 
 
 def create_app(config_class=Config):
@@ -34,5 +42,10 @@ def create_app(config_class=Config):
 
     app.register_blueprint(health_bp)
     app.register_blueprint(flights_bp)
+    app.register_blueprint(schedules_bp)
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(bookings_bp)
+    app.register_blueprint(payments_bp)
+    app.register_blueprint(ratings_bp)
 
     return app
