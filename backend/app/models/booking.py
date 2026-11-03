@@ -13,7 +13,7 @@ class Booking(db.Model):
         db.String(20),
         unique=True,
         nullable=False,
-        default=lambda: uuid.uuid4().hex[:12].upper()
+        default=lambda: uuid.uuid4().hex[:20].upper()
     )
 
     user_id = db.Column(
@@ -45,6 +45,12 @@ class Booking(db.Model):
 
     user = db.relationship("User", back_populates="bookings")
     schedule = db.relationship("FlightSchedule", back_populates="bookings")
+    seat_allocations = db.relationship(
+        "BookingSeat",
+        back_populates="booking",
+        cascade="all, delete-orphan",
+        order_by="BookingSeat.seat_number"
+    )
 
     payment = db.relationship(
         "Payment",
@@ -60,3 +66,36 @@ class Booking(db.Model):
 
     def __repr__(self):
         return f"<Booking {self.booking_reference}>"
+
+
+class BookingSeat(db.Model):
+    __tablename__ = "booking_seats"
+
+    id = db.Column(db.Integer, primary_key=True)
+    booking_id = db.Column(
+        db.Integer,
+        db.ForeignKey("bookings.id"),
+        nullable=False
+    )
+    schedule_id = db.Column(
+        db.Integer,
+        db.ForeignKey("flight_schedules.id"),
+        nullable=False
+    )
+    seat_number = db.Column(db.Integer, nullable=False)
+
+    booking = db.relationship("Booking", back_populates="seat_allocations")
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "schedule_id",
+            "seat_number",
+            name="unique_schedule_seat"
+        ),
+        db.UniqueConstraint(
+            "booking_id",
+            "seat_number",
+            name="unique_booking_seat"
+        ),
+        db.CheckConstraint("seat_number > 0", name="check_seat_number"),
+    )

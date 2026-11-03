@@ -54,6 +54,33 @@ def test_create_booking_successfully(client, auth_token):
     assert data["booking"]["seats_booked"] == 2
     assert data["booking"]["total_amount"] == 17000
     assert data["booking"]["status"] == "PENDING"
+    assert data["booking"]["seat_numbers"] == [1, 2]
+    assert len(data["booking"]["booking_reference"]) == 20
+
+
+def test_bookings_receive_distinct_seats_and_references(client, auth_token):
+    schedule_id = create_flight_and_schedule(client)
+    headers = {"Authorization": "Bearer " + auth_token}
+
+    first_response = client.post(
+        "/api/bookings",
+        json=booking_payload(schedule_id),
+        headers=headers
+    )
+    second_response = client.post(
+        "/api/bookings",
+        json=booking_payload(schedule_id),
+        headers=headers
+    )
+
+    assert first_response.status_code == 201, first_response.get_json()
+    assert second_response.status_code == 201, second_response.get_json()
+    first = first_response.get_json()["booking"]
+    second = second_response.get_json()["booking"]
+
+    assert first["seat_numbers"] == [1, 2]
+    assert second["seat_numbers"] == [3, 4]
+    assert first["booking_reference"] != second["booking_reference"]
 
 
 def test_create_booking_without_token(client):
@@ -176,6 +203,15 @@ def test_cancel_booking_and_restore_seats(client, auth_token):
 
     assert schedule["available_seats"] == 10
 
+    replacement = client.post(
+        "/api/bookings",
+        json=booking_payload(schedule_id, 2),
+        headers={"Authorization": "Bearer " + auth_token}
+    )
+
+    assert replacement.status_code == 201
+    assert replacement.get_json()["booking"]["seat_numbers"] == [1, 2]
+
 
 def test_cancel_booking_twice(client, auth_token):
     schedule_id = create_flight_and_schedule(client)
@@ -200,4 +236,3 @@ def test_cancel_booking_twice(client, auth_token):
 
     assert first_cancel.status_code == 200
     assert second_cancel.status_code == 409
-

@@ -1,11 +1,15 @@
-from decimal import Decimal, InvalidOperation
+from io import BytesIO
+from decimal import Decimal
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, send_file
 from flask_jwt_extended import get_jwt_identity, jwt_required
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
 from sqlalchemy import update
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.extensions import db
-from app.models.booking import Booking
+from app.models.booking import Booking, BookingSeat
 from app.models.flight_schedule import FlightSchedule
 
 
@@ -27,6 +31,9 @@ def booking_data(booking):
         "id": booking.id,
         "booking_reference": booking.booking_reference,
         "seats_booked": booking.seats_booked,
+        "seat_numbers": [
+            seat.seat_number for seat in booking.seat_allocations
+        ],
         "total_amount": float(booking.total_amount),
         "status": booking.status,
         "created_at": booking.created_at.isoformat(),
@@ -45,6 +52,63 @@ def booking_data(booking):
             "destination_code": flight.destination_code
         }
     }
+
+
+def create_ticket_pdf(booking):
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=letter)
+    _, page_height = letter
+
+    pdf.setTitle(f"Aqua Airways ticket {booking.booking_reference}")
+    pdf.setFont("Helvetica-Bold", 18)
+    pdf.drawString(48, page_height - 54, "Aqua Airways")
+    pdf.setFont("Helvetica-Bold", 14)
+    pdf.drawString(48, page_height - 88, "Passenger ticket")
+
+    pdf.setFont("Helvetica", 11)
+    details = [
+        ("Booking reference", booking.booking_reference),
+        ("Passenger", booking.user.full_name),
+        ("Flight", booking.schedule.flight.flight_number),
+        (
+            "Route",
+            (
+                f"{booking.schedule.flight.origin} "
+                f"({booking.schedule.flight.origin_code}) to "
+                f"{booking.schedule.flight.destination} "
+                f"({booking.schedule.flight.destination_code})"
+            )
+        ),
+        ("Departure", booking.schedule.departure_at.isoformat()),
+        ("Arrival", booking.schedule.arrival_at.isoformat()),
+        (
+            "Seat numbers",
+            ", ".join(
+                str(seat.seat_number)
+                for seat in booking.seat_allocations
+            )
+        ),
+        ("Booking status", booking.status),
+    ]
+
+    y = page_height - 126
+    for label, value in details:
+        pdf.setFont("Helvetica-Bold", 10)
+        pdf.drawString(48, y, f"{label}:")
+        pdf.setFont("Helvetica", 10)
+        pdf.drawString(154, y, str(value).encode("ascii", "replace").decode())
+        y -= 24
+
+    pdf.setFont("Helvetica-Oblique", 9)
+    pdf.drawString(
+        48,
+        48,
+        "Present this ticket and valid identification when boarding."
+    )
+    pdf.showPage()
+    pdf.save()
+    buffer.seek(0)
+    return buffer
 
 
 @bookings_bp.route("/api/bookings", methods=["POST"])
@@ -77,7 +141,13 @@ def create_booking():
 
     try:
         schedule_id = int(schedule_id)
+        if isinstance(data.get("schedule_id"), float):
+            if not data["schedule_id"].is_integer():
+                raise ValueError
         seats_booked = int(seats_booked)
+        if isinstance(data.get("seats_booked"), float):
+            if not data["seats_booked"].is_integer():
+                raise ValueError
     except (TypeError, ValueError):
         return jsonify({
             "status": "error",
@@ -126,6 +196,25 @@ def create_booking():
                 "message": "Not enough seats are available."
             }), 409
 
+        occupied_seats = {
+            seat_number
+            for (seat_number,) in db.session.query(
+                BookingSeat.seat_number
+            ).filter_by(schedule_id=schedule_id).all()
+        }
+        seat_numbers = [
+            seat_number
+            for seat_number in range(1, schedule.flight.total_seats + 1)
+            if seat_number not in occupied_seats
+        ][:seats_booked]
+
+        if len(seat_numbers) != seats_booked:
+            db.session.rollback()
+            return jsonify({
+                "status": "error",
+                "message": "Unable to allocate the requested seats."
+            }), 409
+
         booking = Booking(
             user_id=user_id,
             schedule_id=schedule_id,
@@ -135,6 +224,14 @@ def create_booking():
         )
 
         db.session.add(booking)
+        db.session.flush()
+        booking.seat_allocations.extend(
+            BookingSeat(
+                schedule_id=schedule_id,
+                seat_number=seat_number
+            )
+            for seat_number in seat_numbers
+        )
         db.session.commit()
 
         return jsonify({
@@ -143,7 +240,14 @@ def create_booking():
             "booking": booking_data(booking)
         }), 201
 
-    except Exception:
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({
+            "status": "error",
+            "message": "A booking conflict occurred. Please try again."
+        }), 409
+
+    except SQLAlchemyError:
         db.session.rollback()
         return jsonify({
             "status": "error",
@@ -204,6 +308,45 @@ def get_booking(booking_id):
     }), 200
 
 
+@bookings_bp.route(
+    "/api/bookings/<int:booking_id>/ticket",
+    methods=["GET"]
+)
+@jwt_required()
+def get_booking_ticket(booking_id):
+    user_id = get_current_user_id()
+
+    if user_id is None:
+        return jsonify({
+            "status": "error",
+            "message": "Invalid authentication token."
+        }), 401
+
+    booking = Booking.query.filter_by(
+        id=booking_id,
+        user_id=user_id
+    ).first()
+
+    if not booking:
+        return jsonify({
+            "status": "error",
+            "message": "Booking not found."
+        }), 404
+
+    if booking.status != "CONFIRMED":
+        return jsonify({
+            "status": "error",
+            "message": "A ticket is available only for confirmed bookings."
+        }), 409
+
+    return send_file(
+        create_ticket_pdf(booking),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=f"ticket-{booking.booking_reference}.pdf"
+    )
+
+
 @bookings_bp.route("/api/bookings/<int:booking_id>/cancel", methods=["PATCH"])
 @jwt_required()
 def cancel_booking(booking_id):
@@ -238,9 +381,41 @@ def cancel_booking(booking_id):
             "message": "This booking cannot be cancelled."
         }), 400
 
+    was_confirmed = booking.status == "CONFIRMED"
+
     try:
+        result = db.session.execute(
+            update(Booking)
+            .where(
+                Booking.id == booking.id,
+                Booking.user_id == user_id,
+                Booking.status.in_(("PENDING", "CONFIRMED"))
+            )
+            .values(status="CANCELLED")
+        )
+
+        if result.rowcount != 1:
+            db.session.rollback()
+            return jsonify({
+                "status": "error",
+                "message": "This booking has already changed status."
+            }), 409
+
+        db.session.execute(
+            update(FlightSchedule)
+            .where(FlightSchedule.id == booking.schedule_id)
+            .values(
+                available_seats=(
+                    FlightSchedule.available_seats + booking.seats_booked
+                )
+            )
+        )
         booking.status = "CANCELLED"
-        booking.schedule.available_seats += booking.seats_booked
+        if was_confirmed and booking.payment:
+            db.session.refresh(booking.payment)
+            if booking.payment.status == "SUCCEEDED":
+                booking.payment.status = "REFUND_REQUIRED"
+        booking.seat_allocations.clear()
 
         db.session.commit()
 
@@ -250,7 +425,7 @@ def cancel_booking(booking_id):
             "booking": booking_data(booking)
         }), 200
 
-    except Exception:
+    except SQLAlchemyError:
         db.session.rollback()
         return jsonify({
             "status": "error",
