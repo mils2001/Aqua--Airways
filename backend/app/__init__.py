@@ -1,4 +1,3 @@
-
 import os
 
 from dotenv import load_dotenv
@@ -14,6 +13,8 @@ from app.routes.flights import flights_bp
 from app.routes.schedules import schedules_bp
 from app.routes.auth import auth_bp
 from app.routes.bookings import bookings_bp
+from app.routes.payments import payments_bp
+
 
 def create_app(config_class=Config):
     load_dotenv()
@@ -42,6 +43,6 @@ def create_app(config_class=Config):
     app.register_blueprint(schedules_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(bookings_bp)
+    app.register_blueprint(payments_bp)
 
     return app
-
