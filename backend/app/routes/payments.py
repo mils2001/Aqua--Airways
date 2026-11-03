@@ -1,3 +1,4 @@
+
 import uuid
 
 from flask import Blueprint, jsonify, request
@@ -7,7 +8,8 @@ from sqlalchemy.exc import IntegrityError
 from app.extensions import db
 from app.models.booking import Booking
 from app.models.payment import Payment
-
+from app.models.payment_attempt import PaymentAttempt
+from app.services.daraja import initiate_stk_push
 
 payments_bp = Blueprint("payments", __name__)
 
@@ -210,3 +212,159 @@ def get_payment(payment_id):
         "payment": payment_data(payment)
     }), 200
 
+
+@payments_bp.route(
+    "/api/payments/<int:payment_id>/mpesa",
+    methods=["POST"]
+)
+@jwt_required()
+def initiate_mpesa_payment(payment_id):
+    user_id = get_current_user_id()
+
+    if user_id is None:
+        return jsonify({
+            "status": "error",
+            "message": "Invalid authentication token."
+        }), 401
+
+    data = request.get_json(silent=True)
+
+    if not isinstance(data, dict):
+        return jsonify({
+            "status": "error",
+            "message": "A valid JSON object is required."
+        }), 400
+
+    phone_number = data.get("phone_number")
+
+    if not isinstance(phone_number, str):
+        return jsonify({
+            "status": "error",
+            "message": "A valid phone number is required."
+        }), 400
+
+    phone_number = phone_number.strip().replace("+", "")
+
+    if (
+        len(phone_number) != 12
+        or not phone_number.startswith("254")
+        or not phone_number.isdigit()
+    ):
+        return jsonify({
+            "status": "error",
+            "message": "Use a Kenyan phone number in 254XXXXXXXXX format."
+        }), 400
+
+    payment = (
+        Payment.query
+        .join(Booking)
+        .filter(
+            Payment.id == payment_id,
+            Booking.user_id == user_id
+        )
+        .first()
+    )
+
+    if not payment:
+        return jsonify({
+            "status": "error",
+            "message": "Payment not found."
+        }), 404
+
+    if payment.payment_method != "MPESA":
+        return jsonify({
+            "status": "error",
+            "message": "This payment was not created for M-Pesa."
+        }), 400
+
+    if payment.status != "PENDING":
+        return jsonify({
+            "status": "error",
+            "message": "This payment is not pending."
+        }), 409
+
+    if payment.currency != "KES":
+        return jsonify({
+            "status": "error",
+            "message": "M-Pesa payments must use KES."
+        }), 400
+
+    active_attempt = PaymentAttempt.query.filter(
+        PaymentAttempt.payment_id == payment.id,
+        PaymentAttempt.provider == "DARAJA",
+        PaymentAttempt.status.in_(["PENDING", "INITIATED"])
+    ).first()
+
+    if active_attempt:
+        return jsonify({
+            "status": "error",
+            "message": "An M-Pesa payment attempt is already active."
+        }), 409
+
+    attempt = PaymentAttempt(
+        payment_id=payment.id,
+        provider="DARAJA",
+        status="PENDING"
+    )
+
+    try:
+        db.session.add(attempt)
+        db.session.commit()
+
+    except Exception:
+        db.session.rollback()
+        return jsonify({
+            "status": "error",
+            "message": "Unable to create payment attempt."
+        }), 500
+
+    try:
+        result = initiate_stk_push(
+            phone_number=phone_number,
+            amount=payment.amount,
+            account_reference=payment.transaction_reference,
+            description="Aqua Airways booking payment"
+        )
+
+        if (
+            not isinstance(result, dict)
+            or result.get("ResponseCode") != "0"
+            or not result.get("CheckoutRequestID")
+            or not result.get("MerchantRequestID")
+        ):
+            attempt.status = "INITIATION_FAILED"
+            db.session.commit()
+
+            return jsonify({
+                "status": "error",
+                "message": "The payment provider did not accept the request."
+            }), 502
+
+        attempt.provider_reference = result["CheckoutRequestID"]
+        attempt.transaction_reference = result["MerchantRequestID"]
+        attempt.status = "INITIATED"
+
+        db.session.commit()
+
+        return jsonify({
+            "status": "success",
+            "message": "STK Push request submitted. Awaiting payment confirmation.",
+            "payment_id": payment.id,
+            "attempt_id": attempt.id,
+            "payment_status": payment.status
+        }), 202
+
+    except Exception:
+        db.session.rollback()
+
+        attempt = db.session.get(PaymentAttempt, attempt.id)
+
+        if attempt:
+            attempt.status = "INITIATION_UNKNOWN"
+            db.session.commit()
+
+        return jsonify({
+            "status": "error",
+            "message": "The provider response could not be confirmed. Check the attempt before retrying.",
+            "attempt_id": attempt.id if attempt else None
+        }), 502
