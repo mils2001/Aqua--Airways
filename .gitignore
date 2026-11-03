@@ -7,3 +7,15 @@ __pycache__/
 htmlcov/
 instance/
 backend/instance/*.db
+
+# Python environment and generated files
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Environment variables
+.env
+
+# Local SQLite databases
+backend/instance/*.db
