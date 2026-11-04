@@ -10,7 +10,6 @@ from app.models.flight_schedule import FlightSchedule
 
 
 schedules_bp = Blueprint("schedules", __name__)
-
 VALID_STATUSES = {
     "SCHEDULED",
     "DELAYED",
