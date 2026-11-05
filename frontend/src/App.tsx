@@ -606,7 +606,7 @@ function FlightCard({ result }: { result: FlightResult }) {
         <small>per passenger</small>
 
         <Link
-          to={`/register?flight=${flight.id}&schedule=${schedule.id}`}
+          to={`/bookings?schedule=${schedule.id}`}
           className="select-flight"
         >
           Select flight <ArrowRight size={15} />
@@ -653,10 +653,7 @@ function FlightsPage() {
 
   const origin = params.get('origin') || ''
   const destination = params.get('destination') || ''
-
-  // Automatically search tomorrow when the user opens /flights directly.
   const date = params.get('date') || getNairobiDate(1)
-
   const tripType = params.get('tripType') || 'one-way'
   const returnDate = params.get('returnDate') || ''
 

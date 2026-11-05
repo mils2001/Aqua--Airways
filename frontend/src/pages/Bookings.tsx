@@ -1,7 +1,15 @@
-
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { CalendarDays, Plane, Users, XCircle, RefreshCw } from 'lucide-react'
+import {
+  CalendarDays,
+  Plane,
+  Users,
+  XCircle,
+  RefreshCw,
+  CheckCircle2,
+  X,
+  ArrowRight,
+} from 'lucide-react'
 import { getToken } from '../services/auth'
 import '../Bookings.css'
 
@@ -55,6 +63,11 @@ interface SelectedFlight {
   flight: Flight
 }
 
+interface BookingResponse {
+  message: string
+  booking?: Booking
+}
+
 async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {},
@@ -74,7 +87,7 @@ async function apiRequest<T>(
     },
   })
 
-  const data = await response.json()
+  const data = await response.json().catch(() => ({}))
 
   if (!response.ok) {
     throw new Error(data.message || 'Something went wrong.')
@@ -86,7 +99,7 @@ async function apiRequest<T>(
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('en-KE', {
     day: 'numeric',
-    month: 'short',
+    month: 'long',
     year: 'numeric',
     timeZone: 'Africa/Nairobi',
   }).format(new Date(value))
@@ -105,12 +118,18 @@ export default function Bookings() {
   const scheduleId = searchParams.get('schedule')
 
   const [bookings, setBookings] = useState<Booking[]>([])
-  const [selectedFlight, setSelectedFlight] = useState<SelectedFlight | null>(null)
+  const [selectedFlight, setSelectedFlight] =
+    useState<SelectedFlight | null>(null)
+
   const [seats, setSeats] = useState(1)
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+  const [confirmation, setConfirmation] = useState<{
+    message: string
+    reference: string
+  } | null>(null)
 
   const loadBookings = useCallback(async () => {
     const data = await apiRequest<{ bookings: Booking[] }>('/api/bookings')
@@ -135,30 +154,40 @@ export default function Bookings() {
         }
 
         if (scheduleId) {
-          const [scheduleData, flightData] = await Promise.all([
-            apiRequest<{ schedule: Schedule }>(`/api/schedules/${scheduleId}`),
+          const [scheduleData, flightResponse] = await Promise.all([
+            apiRequest<{ schedule: Schedule }>(
+              `/api/schedules/${scheduleId}`,
+            ),
             fetch(`${API_URL}/api/flights`).then(async response => {
-              if (!response.ok) throw new Error('Unable to load flight details.')
+              if (!response.ok) {
+                throw new Error('Unable to load flight details.')
+              }
+
               return response.json() as Promise<{ flights: Flight[] }>
             }),
           ])
 
-          const flight = flightData.flights.find(
+          const flight = flightResponse.flights.find(
             item => item.id === scheduleData.schedule.flight_id,
           )
 
-          if (!flight) throw new Error('The selected flight could not be found.')
+          if (!flight) {
+            throw new Error('The selected flight could not be found.')
+          }
 
           if (active) {
             setSelectedFlight({
               schedule: scheduleData.schedule,
               flight,
             })
+            setSeats(1)
           }
         }
       } catch (err) {
         if (active) {
-          setError(err instanceof Error ? err.message : 'Unable to load bookings.')
+          setError(
+            err instanceof Error ? err.message : 'Unable to load bookings.',
+          )
         }
       } finally {
         if (active) setLoading(false)
@@ -180,7 +209,7 @@ export default function Bookings() {
     setMessage('')
 
     try {
-      const data = await apiRequest<{ message: string }>('/api/bookings', {
+      const data = await apiRequest<BookingResponse>('/api/bookings', {
         method: 'POST',
         body: JSON.stringify({
           schedule_id: selectedFlight.schedule.id,
@@ -188,18 +217,29 @@ export default function Bookings() {
         }),
       })
 
-      setMessage(data.message)
-      setSelectedFlight(null)
       await loadBookings()
+
+      setConfirmation({
+        message: data.message || 'Your booking was created successfully.',
+        reference: data.booking?.booking_reference || '',
+      })
+
+      setSelectedFlight(null)
+      setSeats(1)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to create booking.')
+      setError(
+        err instanceof Error ? err.message : 'Unable to create booking.',
+      )
     } finally {
       setCreating(false)
     }
   }
 
   async function cancelBooking(id: number) {
-    const confirmed = window.confirm('Are you sure you want to cancel this booking?')
+    const confirmed = window.confirm(
+      'Are you sure you want to cancel this booking?',
+    )
+
     if (!confirmed) return
 
     setError('')
@@ -214,7 +254,24 @@ export default function Bookings() {
       setMessage(data.message)
       await loadBookings()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to cancel booking.')
+      setError(
+        err instanceof Error ? err.message : 'Unable to cancel booking.',
+      )
+    }
+  }
+
+  async function refreshBookings() {
+    setLoading(true)
+    setError('')
+
+    try {
+      await loadBookings()
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Unable to refresh bookings.',
+      )
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -222,6 +279,21 @@ export default function Bookings() {
     return (
       <main className="bookings-page">
         <p className="booking-loading">Loading your bookings...</p>
+      </main>
+    )
+  }
+
+  if (!getToken()) {
+    return (
+      <main className="bookings-page">
+        <section className="booking-empty">
+          <Plane size={38} />
+          <h2>Sign in to manage your bookings</h2>
+          <p>You need an Aqua Airways account to reserve a flight.</p>
+          <Link to="/login" className="booking-primary-button">
+            Sign in <ArrowRight size={16} />
+          </Link>
+        </section>
       </main>
     )
   }
@@ -244,6 +316,7 @@ export default function Bookings() {
               <span className="eyebrow">NEW RESERVATION</span>
               <h2>Confirm your flight</h2>
             </div>
+
             <button
               className="booking-close"
               type="button"
@@ -258,7 +331,9 @@ export default function Bookings() {
             <div>
               <strong>{selectedFlight.flight.origin_code}</strong>
               <span>{selectedFlight.flight.origin}</span>
-              <time>{formatTime(selectedFlight.schedule.departure_at)}</time>
+              <time>
+                {formatTime(selectedFlight.schedule.departure_at)}
+              </time>
             </div>
 
             <Plane />
@@ -266,7 +341,9 @@ export default function Bookings() {
             <div>
               <strong>{selectedFlight.flight.destination_code}</strong>
               <span>{selectedFlight.flight.destination}</span>
-              <time>{formatTime(selectedFlight.schedule.arrival_at)}</time>
+              <time>
+                {formatTime(selectedFlight.schedule.arrival_at)}
+              </time>
             </div>
           </div>
 
@@ -285,7 +362,12 @@ export default function Bookings() {
             onChange={event => setSeats(Number(event.target.value))}
           >
             {Array.from(
-              { length: Math.min(10, selectedFlight.schedule.available_seats) },
+              {
+                length: Math.min(
+                  10,
+                  selectedFlight.schedule.available_seats,
+                ),
+              },
               (_, index) => index + 1,
             ).map(number => (
               <option key={number} value={number}>
@@ -297,18 +379,25 @@ export default function Bookings() {
           <div className="booking-total">
             <span>Total amount</span>
             <strong>
-              KSh {(selectedFlight.flight.base_price * seats).toLocaleString('en-KE')}
+              KSh{' '}
+              {(
+                selectedFlight.flight.base_price * seats
+              ).toLocaleString('en-KE')}
             </strong>
           </div>
 
           <button
             className="booking-primary-button"
             type="button"
-            disabled={creating || selectedFlight.schedule.available_seats < 1}
+            disabled={
+              creating ||
+              selectedFlight.schedule.available_seats < 1
+            }
             onClick={createBooking}
           >
             {creating ? 'Creating booking...' : 'Confirm booking'}
           </button>
+
           <small>Payment is not included in this step.</small>
         </section>
       )}
@@ -323,12 +412,7 @@ export default function Bookings() {
           <button
             type="button"
             className="booking-refresh"
-            onClick={() => {
-              setLoading(true)
-              loadBookings()
-                .catch(err => setError(err.message))
-                .finally(() => setLoading(false))
-            }}
+            onClick={refreshBookings}
           >
             <RefreshCw size={16} /> Refresh
           </button>
@@ -338,7 +422,10 @@ export default function Bookings() {
           <div className="booking-empty">
             <Plane size={38} />
             <h3>No bookings yet</h3>
-            <p>Your confirmed reservations will appear here after you book a flight.</p>
+            <p>
+              Your confirmed reservations will appear here after you book
+              a flight.
+            </p>
             <Link to="/flights" className="booking-primary-button">
               Explore flights
             </Link>
@@ -349,7 +436,9 @@ export default function Bookings() {
               <article className="booking-card" key={booking.id}>
                 <div className="booking-card-top">
                   <span>BOOKING {booking.booking_reference}</span>
-                  <span className={`booking-status ${booking.status.toLowerCase()}`}>
+                  <span
+                    className={`booking-status ${booking.status.toLowerCase()}`}
+                  >
                     {booking.status}
                   </span>
                 </div>
@@ -358,7 +447,9 @@ export default function Bookings() {
                   <div>
                     <strong>{booking.flight.origin_code}</strong>
                     <span>{booking.flight.origin}</span>
-                    <time>{formatTime(booking.schedule.departure_at)}</time>
+                    <time>
+                      {formatTime(booking.schedule.departure_at)}
+                    </time>
                   </div>
 
                   <Plane />
@@ -366,7 +457,9 @@ export default function Bookings() {
                   <div>
                     <strong>{booking.flight.destination_code}</strong>
                     <span>{booking.flight.destination}</span>
-                    <time>{formatTime(booking.schedule.arrival_at)}</time>
+                    <time>
+                      {formatTime(booking.schedule.arrival_at)}
+                    </time>
                   </div>
                 </div>
 
@@ -375,10 +468,12 @@ export default function Bookings() {
                     <CalendarDays size={15} />
                     {formatDate(booking.schedule.departure_at)}
                   </span>
+
                   <span>
                     <Users size={15} />
                     {booking.seats_booked} passenger(s)
                   </span>
+
                   <strong>
                     KSh {booking.total_amount.toLocaleString('en-KE')}
                   </strong>
@@ -398,6 +493,60 @@ export default function Bookings() {
           </div>
         )}
       </section>
+
+      {confirmation && (
+        <div
+          className="booking-modal-backdrop"
+          role="presentation"
+          onClick={() => setConfirmation(null)}
+        >
+          <section
+            className="booking-confirmation-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="booking-confirmation-title"
+            onClick={event => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="booking-modal-close"
+              onClick={() => setConfirmation(null)}
+              aria-label="Close confirmation"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="booking-confirmation-icon">
+              <CheckCircle2 size={42} />
+            </div>
+
+            <h2 id="booking-confirmation-title">
+              Booking successful!
+            </h2>
+
+            <p>{confirmation.message}</p>
+
+            {confirmation.reference && (
+              <div className="booking-reference-box">
+                <span>YOUR BOOKING REFERENCE</span>
+                <strong>{confirmation.reference}</strong>
+              </div>
+            )}
+
+            <p className="booking-confirmation-note">
+              Your reservation has been added to My Bookings.
+            </p>
+
+            <button
+              type="button"
+              className="booking-primary-button"
+              onClick={() => setConfirmation(null)}
+            >
+              View my bookings
+            </button>
+          </section>
+        </div>
+      )}
     </main>
   )
 }

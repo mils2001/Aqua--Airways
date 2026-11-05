@@ -132,6 +132,10 @@
   cursor: pointer;
 }
 
+.booking-primary-button:hover {
+  background: #066b76;
+}
+
 .booking-primary-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -215,6 +219,10 @@
   cursor: pointer;
 }
 
+.booking-cancel-button:hover {
+  background: #fff1f1;
+}
+
 .booking-alert {
   padding: 13px 16px;
   margin: 15px 0;
@@ -236,6 +244,88 @@
   text-align: center;
 }
 
+/* Booking confirmation popup */
+
+.booking-confirmation-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(12, 31, 36, 0.65);
+}
+
+.booking-confirmation-modal {
+  width: min(440px, 100%);
+  padding: 35px 28px;
+  border-radius: 18px;
+  background: white;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  animation: booking-popup-in 0.2s ease-out;
+}
+
+.booking-confirmation-icon {
+  width: 68px;
+  height: 68px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  color: #087f65;
+  background: #e8f5f3;
+}
+
+.booking-confirmation-modal h2 {
+  margin: 0 0 12px;
+  color: #173b44;
+  font-size: 25px;
+}
+
+.booking-confirmation-modal p {
+  color: #687b82;
+  line-height: 1.6;
+}
+
+.booking-reference {
+  margin: 22px 0;
+  padding: 15px;
+  border: 1px dashed #087f8c;
+  border-radius: 10px;
+  background: #f1fbfb;
+}
+
+.booking-reference span {
+  display: block;
+  margin-bottom: 7px;
+  color: #687b82;
+  font-size: 12px;
+}
+
+.booking-reference strong {
+  color: #087f8c;
+  font-size: 20px;
+  letter-spacing: 1px;
+}
+
+.booking-confirmation-modal .booking-primary-button {
+  width: 100%;
+}
+
+@keyframes booking-popup-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @media (max-width: 600px) {
   .booking-create-card,
   .booking-card {
@@ -255,5 +345,9 @@
   .booking-card-details {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .booking-confirmation-modal {
+    padding: 28px 20px;
   }
 }
