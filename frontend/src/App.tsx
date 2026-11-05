@@ -33,6 +33,8 @@ import {
 } from './services/auth'
 import Register from './pages/Register'
 import Login from './pages/Login'
+import Bookings from './pages/Bookings'
+import Profile from './pages/Profile'
 import './App.css'
 
 const destinations = [
@@ -436,6 +438,36 @@ function FlightsPage() {
   const [results, setResults] = useState<FlightResult[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [promotionIndex, setPromotionIndex] = useState(0)
+
+  const promotions = [
+    {
+      title: 'Discover the Kenyan Coast',
+      description: 'Explore Mombasa and experience the beauty of Diani Beach.',
+      image: '/images/destinations/mombasa.jpg',
+      label: 'DESTINATION HIGHLIGHT',
+    },
+    {
+      title: 'Beyond Every Destination',
+      description: 'Your next journey begins with Aqua Airways.',
+      image: destinations[1].image,
+      label: 'EXPLORE THE WORLD',
+    },
+    {
+      title: 'Plan Your Next Journey',
+      description: 'Check available flights, travel dates and schedules.',
+      image: destinations[2].image,
+      label: 'TRAVEL WITH AQUA',
+    },
+  ]
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setPromotionIndex(current => (current + 1) % promotions.length)
+    }, 6000)
+
+    return () => window.clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     if (!origin || !destination || !date) {
@@ -494,6 +526,53 @@ function FlightsPage() {
         <span className="eyebrow">AQUA AIRWAYS</span>
         <h1>Find your flight</h1>
         <p>Compare available flights and choose your next journey.</p>
+      </section>
+
+      <section className="promotion-banner">
+        <img
+          key={promotions[promotionIndex].image}
+          src={promotions[promotionIndex].image}
+          alt="Aqua Airways destination highlight"
+          onError={event => {
+            event.currentTarget.style.display = 'none'
+          }}
+        />
+        <div className="promotion-overlay">
+          <span>{promotions[promotionIndex].label}</span>
+          <h2>{promotions[promotionIndex].title}</h2>
+          <p>{promotions[promotionIndex].description}</p>
+          <div className="promotion-controls">
+            <button
+              type="button"
+              aria-label="Previous promotion"
+              onClick={() => setPromotionIndex(current =>
+                (current - 1 + promotions.length) % promotions.length
+              )}
+            >
+              &#8592;
+            </button>
+            <div className="promotion-dots">
+              {promotions.map((promotion, index) => (
+                <button
+                  key={promotion.title}
+                  type="button"
+                  aria-label={`Show promotion ${index + 1}`}
+                  className={index === promotionIndex ? 'active' : ''}
+                  onClick={() => setPromotionIndex(index)}
+                />
+              ))}
+            </div>
+            <button
+              type="button"
+              aria-label="Next promotion"
+              onClick={() => setPromotionIndex(current =>
+                (current + 1) % promotions.length
+              )}
+            >
+              &#8594;
+            </button>
+          </div>
+        </div>
       </section>
 
       {origin && destination && date ? (
@@ -555,18 +634,24 @@ function FlightsPage() {
       <div className="flight-results">
         {results.map(({ flight, schedule }) => (
           <article className="flight-card" key={schedule.id}>
-            {flight.destination_image
-                         ? (
-                <img
-                  className="flight-image"
-                  src={flight.destination_image}
-                  alt={flight.destination}
-                />
-              ) : (
-                <div className="flight-image flight-image-placeholder">
-                  <Globe2 size={35} />
-                </div>
-              )}
+            {flight.destination_image ? (
+              <img
+                className="flight-image"
+                src={
+                  flight.destination_image.startsWith('http')
+                    ? flight.destination_image
+                    : `${window.location.origin}${flight.destination_image}`
+                }
+                alt={`${flight.destination} destination`}
+                onError={event => {
+                  event.currentTarget.style.display = 'none'
+                }}
+              />
+            ) : (
+              <div className="flight-image flight-image-placeholder">
+                <Globe2 size={35} />
+              </div>
+            )}
 
             <div className="flight-card-content">
               <div className="flight-card-top">
@@ -669,6 +754,7 @@ function Footer() {
         <div className="footer-links">
           <Link to="/flights">Flights</Link>
           <Link to="/bookings">My Bookings</Link>
+          <Link to="/profile">My Profile</Link>
           <Link to="/about">About Us</Link>
           <Link to="/login">Sign In</Link>
         </div>
@@ -694,16 +780,8 @@ function AppLayout() {
         <Route path="/flights" element={<FlightsPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-
-        <Route
-          path="/bookings"
-          element={
-            <PagePlaceholder
-              title="My Bookings"
-              description="Your flight bookings will be available here."
-            />
-          }
-        />
+        <Route path="/bookings" element={<Bookings />} />
+        <Route path="/profile" element={<Profile />} />
 
         <Route
           path="/about"
@@ -711,16 +789,6 @@ function AppLayout() {
             <PagePlaceholder
               title="Beyond Every Destination"
               description="Discover the Aqua Airways travel experience."
-            />
-          }
-        />
-
-        <Route
-          path="/profile"
-          element={
-            <PagePlaceholder
-              title="My Profile"
-              description="Manage your passenger profile here."
             />
           }
         />

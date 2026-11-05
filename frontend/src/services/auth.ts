@@ -1,3 +1,4 @@
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000'
 
 const TOKEN_KEY = 'aqua_access_token'
@@ -25,17 +26,17 @@ interface ProfileResponse {
 
 async function authRequest<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<T> {
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...options.headers
-    }
+      ...options.headers,
+    },
   })
 
-  const data = await response.json()
+  const data = await response.json().catch(() => ({}))
 
   if (!response.ok) {
     throw new Error(data.message || 'Something went wrong.')
@@ -51,7 +52,7 @@ export async function registerUser(details: {
 }): Promise<AuthResponse> {
   return authRequest<AuthResponse>('/api/auth/register', {
     method: 'POST',
-    body: JSON.stringify(details)
+    body: JSON.stringify(details),
   })
 }
 
@@ -61,19 +62,23 @@ export async function loginUser(details: {
 }): Promise<AuthResponse> {
   const data = await authRequest<AuthResponse>('/api/auth/login', {
     method: 'POST',
-    body: JSON.stringify(details)
+    body: JSON.stringify(details),
   })
 
-  if (data.access_token && data.user) {
-    localStorage.setItem(TOKEN_KEY, data.access_token)
-    localStorage.setItem(USER_KEY, JSON.stringify(data.user))
+  if (!data.access_token || !data.user) {
+    throw new Error('The server returned an invalid login response.')
   }
+
+  localStorage.setItem(TOKEN_KEY, data.access_token)
+  localStorage.setItem(USER_KEY, JSON.stringify(data.user))
+
+  window.dispatchEvent(new Event('aqua-auth-change'))
 
   return data
 }
 
 export async function getCurrentUser(): Promise<AuthUser> {
-  const token = localStorage.getItem(TOKEN_KEY)
+  const token = getToken()
 
   if (!token) {
     throw new Error('You are not logged in.')
@@ -81,8 +86,8 @@ export async function getCurrentUser(): Promise<AuthUser> {
 
   const data = await authRequest<ProfileResponse>('/api/auth/profile', {
     headers: {
-      Authorization: `Bearer ${token}`
-    }
+      Authorization: `Bearer ${token}`,
+    },
   })
 
   localStorage.setItem(USER_KEY, JSON.stringify(data.user))
@@ -110,4 +115,7 @@ export function getToken(): string | null {
 export function logoutUser(): void {
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(USER_KEY)
+
+  window.dispatchEvent(new Event('aqua-auth-change'))
 }
+
