@@ -1,12 +1,17 @@
+print("it worked")
+
 import os
 import sys
 from decimal import Decimal
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "backend"))
 
 from app import create_app
 from app.extensions import db
-
-from app.models import User, Booking, FlightSchedule  
-from app.models import Payment, PassengerRating  
+from app.models import User, Booking, FlightSchedule
+from app.models import Payment, PassengerRating
+ 
 
 DEFAULT_PASSWORD = os.environ.get("SEED_PASSWORD", "ChangeMe123!")
 FALLBACK_PRICE_PER_SEAT = Decimal("100.00")
