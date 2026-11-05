@@ -29,6 +29,7 @@ export interface FlightResult {
 
 interface FlightsResponse {
   status: string
+  count?: number
   flights: Flight[]
 }
 
@@ -47,18 +48,31 @@ async function request<T>(url: string): Promise<T> {
   return response.json() as Promise<T>
 }
 
+export async function getFlights(): Promise<Flight[]> {
+  const data = await request<FlightsResponse>('/api/flights')
+  return data.flights
+}
+
 export async function searchFlights(
   origin: string,
   destination: string,
   date: string,
 ): Promise<FlightResult[]> {
-  const flightData = await request<FlightsResponse>('/api/flights')
+  const flights = await getFlights()
 
-  const matchingFlights = flightData.flights.filter((flight) => {
-    return (
-      flight.origin.toLowerCase().includes(origin.toLowerCase()) &&
-      flight.destination.toLowerCase().includes(destination.toLowerCase())
-    )
+  const normalizedOrigin = origin.trim().toLowerCase()
+  const normalizedDestination = destination.trim().toLowerCase()
+
+  const matchingFlights = flights.filter((flight) => {
+    const originMatches =
+      !normalizedOrigin ||
+      flight.origin.toLowerCase().includes(normalizedOrigin)
+
+    const destinationMatches =
+      !normalizedDestination ||
+      flight.destination.toLowerCase().includes(normalizedDestination)
+
+    return originMatches && destinationMatches
   })
 
   const scheduleResults = await Promise.all(
@@ -89,5 +103,11 @@ export async function searchFlights(
     }),
   )
 
-  return scheduleResults.flat()
+  return scheduleResults
+    .flat()
+    .sort(
+      (a, b) =>
+        new Date(a.schedule.departure_at).getTime() -
+        new Date(b.schedule.departure_at).getTime(),
+    )
 }

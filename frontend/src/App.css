@@ -1960,3 +1960,359 @@ body {
     padding: 22px;
   }
 }
+
+/* FLIGHT SEARCH AND ROUTE SELECTION */
+
+.flight-search-wrapper {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.trip-type-switch {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+
+.trip-type-switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 20px;
+  border: 1px solid #d9e8e6;
+  border-radius: 30px;
+  background: #fff;
+  color: #42615f;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.trip-type-switch button.active {
+  background: #087f78;
+  border-color: #087f78;
+  color: #fff;
+}
+
+.search-field select {
+  width: 100%;
+  min-width: 0;
+  padding: 12px 8px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #173f40;
+  font: inherit;
+}
+
+.search-field select:focus,
+.search-field input:focus {
+  outline: none;
+}
+
+.search-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.search-bottom-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+  color: #617775;
+  font-size: 13px;
+}
+
+.search-bottom-line > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.browse-routes-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  background: transparent;
+  color: #087f78;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.route-load-error {
+  color: #c0392b;
+}
+
+/* FLIGHT RESULTS GROUPS */
+
+.flight-results-group {
+  margin: 35px 0;
+}
+
+.flight-group-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.flight-group-heading h2 {
+  margin: 7px 0 0;
+  color: #103f40;
+  font-size: 22px;
+}
+
+.route-count {
+  padding: 8px 14px;
+  border-radius: 30px;
+  background: #eaf6f4;
+  color: #087f78;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.enhanced-flight-card {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr) 190px;
+  align-items: stretch;
+  gap: 22px;
+  overflow: hidden;
+}
+
+.enhanced-flight-card .flight-image {
+  width: 100%;
+  height: 100%;
+  min-height: 210px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.enhanced-flight-card .flight-card-content {
+  min-width: 0;
+  justify-content: center;
+}
+
+.enhanced-flight-route {
+  display: grid;
+  grid-template-columns: minmax(75px, 1fr) minmax(100px, 1.3fr) minmax(75px, 1fr);
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0;
+}
+
+.timeline-stop {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.timeline-stop strong {
+  color: #103f40;
+  font-size: 25px;
+  letter-spacing: 0.5px;
+}
+
+.timeline-stop > span:not(.timeline-time) {
+  color: #647977;
+  font-size: 13px;
+}
+
+.timeline-stop small {
+  color: #087f78;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.timeline-time {
+  color: #087f78;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.timeline-arrival {
+  text-align: right;
+}
+
+.flight-timeline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.timeline-duration {
+  color: #526967;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.timeline-track {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  color: #087f78;
+}
+
+.timeline-track > svg {
+  flex-shrink: 0;
+  transform: rotate(90deg);
+}
+
+.timeline-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border: 2px solid #087f78;
+  border-radius: 50%;
+}
+
+.timeline-line {
+  flex: 1;
+  height: 1px;
+  background: #9ccbc5;
+}
+
+.timeline-direct {
+  color: #748582;
+  font-size: 11px;
+}
+
+.enhanced-flight-card .flight-price {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 7px;
+  padding-left: 20px;
+  border-left: 1px solid #e3eeec;
+}
+
+.enhanced-flight-card .flight-price strong {
+  color: #087f78;
+  font-size: 23px;
+}
+
+.enhanced-flight-card .select-flight {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  margin-top: 9px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #087f78;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.2s ease;
+}
+
+.enhanced-flight-card .select-flight:hover {
+  background: #065f5a;
+}
+
+.all-routes-note {
+  margin: 25px 0;
+  color: #526967;
+  text-align: center;
+}
+
+.return-empty {
+  margin-top: 25px;
+}
+
+/* RESPONSIVE FLIGHT SEARCH */
+
+@media (max-width: 900px) {
+  .enhanced-flight-card {
+    grid-template-columns: 145px minmax(0, 1fr);
+  }
+
+  .enhanced-flight-card .flight-price {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 15px 0 0;
+    border-left: 0;
+    border-top: 1px solid #e3eeec;
+  }
+
+  .enhanced-flight-card .flight-price small {
+    display: none;
+  }
+
+  .enhanced-flight-card .select-flight {
+    width: auto;
+    margin: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .trip-type-switch {
+    justify-content: center;
+  }
+
+  .search-bottom-line {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .enhanced-flight-card {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+
+  .enhanced-flight-card .flight-image {
+    height: 170px;
+    min-height: 170px;
+  }
+
+  .enhanced-flight-route {
+    grid-template-columns: minmax(65px, 1fr) minmax(75px, 1fr) minmax(65px, 1fr);
+    gap: 7px;
+  }
+
+  .timeline-stop strong {
+    font-size: 21px;
+  }
+
+  .timeline-time {
+    font-size: 15px;
+  }
+
+  .timeline-stop > span:not(.timeline-time) {
+    font-size: 11px;
+  }
+
+  .enhanced-flight-card .flight-price {
+    grid-template-columns: 1fr auto;
+  }
+
+  .enhanced-flight-card .flight-price > span {
+    display: none;
+  }
+
+  .enhanced-flight-card .select-flight {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .flight-group-heading h2 {
+    font-size: 18px;
+  }
+}
+
+
+

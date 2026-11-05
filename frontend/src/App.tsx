@@ -1,3 +1,4 @@
+
 import { useEffect, useState, type FormEvent } from 'react'
 import {
   BrowserRouter,
@@ -16,6 +17,7 @@ import {
   MapPin,
   CalendarDays,
   ArrowRight,
+  ArrowLeftRight,
   ShieldCheck,
   Headphones,
   Globe2,
@@ -24,68 +26,114 @@ import {
   Users,
   AlertCircle,
   LogOut,
+  PlaneLanding,
 } from 'lucide-react'
-import { searchFlights, type FlightResult } from './services/api'
+
+import {
+  getFlights,
+  searchFlights,
+  type Flight,
+  type FlightResult,
+} from './services/api'
+
 import {
   getStoredUser,
   logoutUser,
   type AuthUser,
 } from './services/auth'
+
 import Register from './pages/Register'
 import Login from './pages/Login'
 import Bookings from './pages/Bookings'
 import Profile from './pages/Profile'
 import './App.css'
 
+const getNairobiDate = (offset = 0) => {
+  const date = new Date()
+  date.setDate(date.getDate() + offset)
+
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Nairobi',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date)
+}
+
 const destinations = [
+  ['Mombasa', 'Kenya', 'Discover the beautiful Kenyan coast', '/images/destinations/mombasa.jpg'],
+  ['Paris', 'France', 'Experience the city of lights', '/images/destinations/paris.jpg'],
+  ['Dubai', 'United Arab Emirates', 'Explore extraordinary places', '/images/destinations/dubai.jpg'],
+  ['Zanzibar', 'Tanzania', 'Discover beautiful island beaches', '/images/destinations/zanzibar.jpg'],
+]
+
+const slides = destinations.map(([name, country, , image]) => ({
+  name,
+  country,
+  image,
+}))
+
+const promotions = [
   {
-    name: 'Mombasa',
-    country: 'Kenya',
-    description: 'Discover the beautiful Kenyan coast',
-    image: 'https://images.unsplash.com/photo-1510414842594-a61c69b5ae57?w=900&q=85',
+    title: 'Discover the Kenyan Coast',
+    description: 'Explore Mombasa and experience the beauty of Diani Beach.',
+    image: '/images/destinations/mombasa.jpg',
+    label: 'DESTINATION HIGHLIGHT',
   },
   {
-    name: 'Paris',
-    country: 'France',
-    description: 'Experience the city of lights',
-    image: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=900&q=85',
+    title: 'Beyond Every Destination',
+    description: 'Your next journey begins with Aqua Airways.',
+    image: '/images/destinations/paris.jpg',
+    label: 'EXPLORE THE WORLD',
   },
   {
-    name: 'Dubai',
-    country: 'United Arab Emirates',
-    description: 'Explore extraordinary places',
-    image: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=900&q=85',
-  },
-  {
-    name: 'Cape Town',
-    country: 'South Africa',
-    description: 'Where nature meets the city',
-    image: 'https://images.unsplash.com/photo-1580060839134-75a5edca2e99?w=900&q=85',
+    title: 'Plan Your Next Journey',
+    description: 'Check available flights, dates and schedules.',
+    image: '/images/destinations/dubai.jpg',
+    label: 'TRAVEL WITH AQUA',
   },
 ]
 
-const heroSlides = [
-  {
-    name: 'Mombasa',
-    country: 'Kenya',
-    image: 'https://images.unsplash.com/photo-1510414842594-a61c69b5ae57?w=1920&q=85',
-  },
-  {
-    name: 'Paris',
-    country: 'France',
-    image: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=1920&q=85',
-  },
-  {
-    name: 'Dubai',
-    country: 'United Arab Emirates',
-    image: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=1920&q=85',
-  },
-  {
-    name: 'Cape Town',
-    country: 'South Africa',
-    image: 'https://images.unsplash.com/photo-1580060839134-75a5edca2e99?w=1920&q=85',
-  },
+const navLinks = [
+  ['Home', '/'],
+  ['Flights', '/flights'],
+  ['My Bookings', '/bookings'],
+  ['About Us', '/about'],
 ]
+
+const destinationImages: Record<string, string> = {
+  nairobi: 'nairobi',
+  mombasa: 'mombasa',
+  kisumu: 'kisumu',
+  eldoret: 'eldoret',
+  malindi: 'malindi',
+  ukunda: 'ukunda',
+  lamu: 'lamu',
+  lagos: 'lagos',
+  kigali: 'kigali',
+  kampala: 'kampala',
+  'dar es salaam': 'dar-es-salaam',
+  'addis ababa': 'addis-ababa',
+  johannesburg: 'johannesburg',
+  cairo: 'cairo',
+  zanzibar: 'zanzibar',
+  london: 'london',
+  paris: 'paris',
+  dubai: 'dubai',
+  doha: 'doha',
+  'new york': 'new-york',
+  istanbul: 'istanbul',
+  mumbai: 'mumbai',
+  amsterdam: 'amsterdam',
+}
+
+function getDestinationImage(destination: string) {
+  const imageName = destinationImages[destination.trim().toLowerCase()]
+
+  return imageName
+    ? `/images/destinations/${imageName}.jpg`
+    : '/images/destinations/nairobi.jpg'
+}
 
 function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -93,36 +141,31 @@ function Navbar() {
 
   const closeMenu = () => setMenuOpen(false)
 
-  function handleLogout() {
+  useEffect(() => {
+    const update = () => setUser(getStoredUser())
+
+    window.addEventListener('storage', update)
+    window.addEventListener('aqua-auth-change', update)
+
+    return () => {
+      window.removeEventListener('storage', update)
+      window.removeEventListener('aqua-auth-change', update)
+    }
+  }, [])
+
+  function signOut() {
     logoutUser()
     setUser(null)
     closeMenu()
     window.location.href = '/'
   }
 
-  useEffect(() => {
-    const updateUser = () => setUser(getStoredUser())
-
-    window.addEventListener('storage', updateUser)
-    window.addEventListener('aqua-auth-change', updateUser)
-
-    return () => {
-      window.removeEventListener('storage', updateUser)
-      window.removeEventListener('aqua-auth-change', updateUser)
-    }
-  }, [])
-
   return (
     <header className="navbar">
       <div className="nav-container">
         <Link to="/" className="brand" onClick={closeMenu}>
-          <span className="brand-icon">
-            <Plane size={23} />
-          </span>
-          <span>
-            <strong>AQUA</strong>
-            <small>AIRWAYS</small>
-          </span>
+          <span className="brand-icon"><Plane size={23} /></span>
+          <span><strong>AQUA</strong><small>AIRWAYS</small></span>
         </Link>
 
         <button
@@ -134,30 +177,29 @@ function Navbar() {
         </button>
 
         <nav className={menuOpen ? 'nav-links open' : 'nav-links'}>
-          <NavLink to="/" onClick={closeMenu}>Home</NavLink>
-          <NavLink to="/flights" onClick={closeMenu}>Flights</NavLink>
-          <NavLink to="/bookings" onClick={closeMenu}>My Bookings</NavLink>
-          <NavLink to="/about" onClick={closeMenu}>About Us</NavLink>
+          {navLinks.map(([label, path]) => (
+            <NavLink key={path} to={path} onClick={closeMenu}>
+              {label}
+            </NavLink>
+          ))}
         </nav>
 
         <div className="nav-actions">
           {user ? (
             <>
-              <Link to="/profile" className="login-link" onClick={closeMenu}>
-                <UserRound size={17} />
-                {user.full_name.split(' ')[0]}
+              <Link to="/profile" className="login-link">
+                <UserRound size={17} /> {user.full_name.split(' ')[0]}
               </Link>
-              <button className="nav-register" onClick={handleLogout}>
+              <button className="nav-register" onClick={signOut}>
                 Sign out <LogOut size={16} />
               </button>
             </>
           ) : (
             <>
-              <Link to="/login" className="login-link" onClick={closeMenu}>
-                <UserRound size={17} />
-                Sign in
+              <Link to="/login" className="login-link">
+                <UserRound size={17} /> Sign in
               </Link>
-              <Link to="/register" className="nav-register" onClick={closeMenu}>
+              <Link to="/register" className="nav-register">
                 Get Started <ArrowRight size={16} />
               </Link>
             </>
@@ -171,117 +213,191 @@ function Navbar() {
 function FlightSearch() {
   const navigate = useNavigate()
 
+  const [flights, setFlights] = useState<Flight[]>([])
   const [origin, setOrigin] = useState('')
   const [destination, setDestination] = useState('')
-  const [date, setDate] = useState(
-    new Date().toLocaleDateString('en-CA', {
-      timeZone: 'Africa/Nairobi',
-    }),
-  )
+  const [date, setDate] = useState(getNairobiDate(1))
+  const [returnDate, setReturnDate] = useState(getNairobiDate(2))
+  const [tripType, setTripType] = useState<'one-way' | 'round-trip'>('one-way')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+
+    getFlights()
+      .then(data => {
+        if (active) setFlights(data)
+      })
+      .catch(() => {
+        if (active) setError('Unable to load flight routes.')
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const origins = [...new Set(flights.map(flight => flight.origin))].sort()
+  const destinationsList = [...new Set(flights.map(flight => flight.destination))].sort()
 
   function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    if (!origin.trim() || !destination.trim() || !date) return
+    if (!date || (tripType === 'round-trip' && returnDate < date)) return
 
     const params = new URLSearchParams({
-      origin: origin.trim(),
-      destination: destination.trim(),
+      origin,
+      destination,
       date,
+      tripType,
     })
 
-    navigate(`/flights?${params.toString()}`)
+    if (tripType === 'round-trip') {
+      params.set('returnDate', returnDate)
+    }
+
+    navigate(`/flights?${params}`)
   }
 
   return (
-    <form className="search-form" onSubmit={handleSearch}>
-      <div className="search-field">
-        <label htmlFor="origin">
-          <MapPin size={16} /> FROM
-        </label>
-        <input
-          id="origin"
-          value={origin}
-          onChange={(event) => setOrigin(event.target.value)}
-          placeholder="Departure city"
-          required
-        />
+    <div className="flight-search-wrapper">
+      <div className="trip-type-switch">
+        <button
+          type="button"
+          className={tripType === 'one-way' ? 'active' : ''}
+          onClick={() => setTripType('one-way')}
+        >
+          One way
+        </button>
+
+        <button
+          type="button"
+          className={tripType === 'round-trip' ? 'active' : ''}
+          onClick={() => setTripType('round-trip')}
+        >
+          <ArrowLeftRight size={16} /> Return trip
+        </button>
       </div>
 
-      <div className="search-divider" />
+      <form className="search-form" onSubmit={handleSearch}>
+        <div className="search-field">
+          <label htmlFor="origin"><MapPin size={16} /> FROM</label>
+          <select
+            id="origin"
+            value={origin}
+            onChange={event => setOrigin(event.target.value)}
+          >
+            <option value="">Any departure city</option>
+            {origins.map(city => <option key={city} value={city}>{city}</option>)}
+          </select>
+        </div>
 
-      <div className="search-field">
-        <label htmlFor="destination">
-          <MapPin size={16} /> TO
-        </label>
-        <input
-          id="destination"
-          value={destination}
-          onChange={(event) => setDestination(event.target.value)}
-          placeholder="Destination city"
-          required
-        />
+        <div className="search-divider" />
+
+        <div className="search-field">
+          <label htmlFor="destination"><MapPin size={16} /> TO</label>
+          <select
+            id="destination"
+            value={destination}
+            onChange={event => setDestination(event.target.value)}
+          >
+            <option value="">Any destination</option>
+            {destinationsList.map(city => <option key={city} value={city}>{city}</option>)}
+          </select>
+        </div>
+
+        <div className="search-divider" />
+
+        <div className="search-field date-field">
+          <label htmlFor="travel-date"><CalendarDays size={16} /> DEPARTURE</label>
+          <input
+            id="travel-date"
+            type="date"
+            min={getNairobiDate(1)}
+            value={date}
+            onChange={event => {
+              setDate(event.target.value)
+              if (returnDate < event.target.value) {
+                setReturnDate(event.target.value)
+              }
+            }}
+            required
+          />
+        </div>
+
+        {tripType === 'round-trip' && (
+          <>
+            <div className="search-divider" />
+            <div className="search-field date-field">
+              <label htmlFor="return-date"><CalendarDays size={16} /> RETURN</label>
+              <input
+                id="return-date"
+                type="date"
+                min={date}
+                value={returnDate}
+                onChange={event => setReturnDate(event.target.value)}
+                required
+              />
+            </div>
+          </>
+        )}
+
+        <button className="search-button" type="submit" disabled={loading}>
+          <Search size={19} /> Search Flights
+        </button>
+      </form>
+
+      <div className="search-bottom-line">
+        <span>
+          {loading ? 'Loading available routes...' : <><Plane size={14} /> {flights.length} routes available</>}
+        </span>
+
+        {error && <span className="route-load-error">{error}</span>}
+
+        <button
+          className="browse-routes-link"
+          type="button"
+          onClick={() => navigate(`/flights?date=${date}`)}
+        >
+          Browse all routes <ArrowRight size={14} />
+        </button>
       </div>
-
-      <div className="search-divider" />
-
-      <div className="search-field date-field">
-        <label htmlFor="travel-date">
-          <CalendarDays size={16} /> DEPARTURE
-        </label>
-        <input
-          id="travel-date"
-          type="date"
-          value={date}
-          onChange={(event) => setDate(event.target.value)}
-          min={new Date().toLocaleDateString('en-CA', {
-            timeZone: 'Africa/Nairobi',
-          })}
-          required
-        />
-      </div>
-
-      <button className="search-button" type="submit">
-        <Search size={19} />
-        Search Flights
-      </button>
-    </form>
+    </div>
   )
 }
 
 function Home() {
-  const [activeSlide, setActiveSlide] = useState(0)
+  const [active, setActive] = useState(0)
+  const slide = slides[active]
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      setActiveSlide((current) => (current + 1) % heroSlides.length)
-    }, 6000)
+    const timer = window.setInterval(
+      () => setActive(current => (current + 1) % slides.length),
+      6000,
+    )
 
     return () => window.clearInterval(timer)
   }, [])
-
-  const slide = heroSlides[activeSlide]
 
   return (
     <>
       <section className="hero">
         <div
           className="hero-background"
-          key={slide.image}
           style={{ backgroundImage: `url("${slide.image}")` }}
         />
         <div className="hero-overlay" />
 
         <div className="hero-content">
           <div className="hero-tag">
-            <Plane size={15} />
-            YOUR JOURNEY STARTS HERE
+            <Plane size={15} /> YOUR JOURNEY STARTS HERE
           </div>
 
-          <h1>
-            Beyond Every
-            <span>Destination.</span>
-          </h1>
+          <h1>Beyond Every <span>Destination.</span></h1>
 
           <p>
             Discover new places, create unforgettable memories and travel
@@ -298,34 +414,22 @@ function Home() {
           </div>
 
           <div className="hero-stats">
-            <div>
-              <strong>Comfort</strong>
-              <span>Every journey</span>
-            </div>
-            <div>
-              <strong>Reliable</strong>
-              <span>Travel experience</span>
-            </div>
-            <div>
-              <strong>Connected</strong>
-              <span>More destinations</span>
-            </div>
+            <div><strong>Comfort</strong><span>Every journey</span></div>
+            <div><strong>Reliable</strong><span>Travel experience</span></div>
+            <div><strong>Connected</strong><span>More destinations</span></div>
           </div>
 
           <div className="hero-slide-caption">
-            <MapPin size={16} />
-            <span>{slide.name}, {slide.country}</span>
+            <MapPin size={16} /> {slide.name}, {slide.country}
           </div>
 
-          <div className="hero-controls" aria-label="Choose destination image">
-            {heroSlides.map((item, index) => (
+          <div className="hero-controls">
+            {slides.map((item, index) => (
               <button
                 key={item.name}
-                type="button"
-                className={activeSlide === index ? 'hero-dot active' : 'hero-dot'}
-                onClick={() => setActiveSlide(index)}
+                className={active === index ? 'hero-dot active' : 'hero-dot'}
+                onClick={() => setActive(index)}
                 aria-label={`Show ${item.name}`}
-                aria-pressed={activeSlide === index}
               />
             ))}
           </div>
@@ -353,17 +457,13 @@ function Home() {
         </div>
 
         <div className="destination-grid">
-          {destinations.map((destination) => (
-            <article className="destination-card" key={destination.name}>
-              <img
-                src={destination.image}
-                alt={`${destination.name}, ${destination.country}`}
-                loading="lazy"
-              />
+          {destinations.map(([name, country, description, image]) => (
+            <article className="destination-card" key={name}>
+              <img src={image} alt={`${name}, ${country}`} loading="lazy" />
               <div className="destination-overlay">
-                <span>{destination.country}</span>
-                <h3>{destination.name}</h3>
-                <p>{destination.description}</p>
+                <span>{country}</span>
+                <h3>{name}</h3>
+                <p>{description}</p>
               </div>
             </article>
           ))}
@@ -374,38 +474,26 @@ function Home() {
         <div className="section-heading">
           <span className="eyebrow">THE AQUA EXPERIENCE</span>
           <h2>A better way to plan your journey</h2>
-          <p>
-            Simple tools and useful information to help you travel
-            with confidence.
-          </p>
+          <p>Simple tools and useful information to help you travel with confidence.</p>
         </div>
 
         <div className="benefit-grid">
           <article className="benefit-card">
             <span className="benefit-icon"><ShieldCheck /></span>
             <h3>Clear booking information</h3>
-            <p>
-              View your flight details, travel dates and available
-              seats before making your booking.
-            </p>
+            <p>View flight details, travel dates and available seats before booking.</p>
           </article>
 
           <article className="benefit-card">
             <span className="benefit-icon"><Headphones /></span>
             <h3>Passenger support</h3>
-            <p>
-              Access your booking information and stay informed
-              about your journey.
-            </p>
+            <p>Access your booking information and stay informed about your journey.</p>
           </article>
 
           <article className="benefit-card">
             <span className="benefit-icon"><Globe2 /></span>
             <h3>Discover new places</h3>
-            <p>
-              Explore destinations and find inspiration for your
-              next travel experience.
-            </p>
+            <p>Explore destinations and find inspiration for your next adventure.</p>
           </article>
         </div>
       </section>
@@ -414,10 +502,7 @@ function Home() {
         <div>
           <span className="eyebrow">YOUR NEXT ADVENTURE</span>
           <h2>The world is waiting.</h2>
-          <p>
-            Create your Aqua Airways account and start planning
-            your journey.
-          </p>
+          <p>Create your Aqua Airways account and start planning your journey.</p>
         </div>
         <Link to="/register" className="cta-button">
           Create Account <ArrowRight size={18} />
@@ -427,70 +512,197 @@ function Home() {
   )
 }
 
+const formatTime = (value: string) =>
+  new Intl.DateTimeFormat('en-KE', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Africa/Nairobi',
+  }).format(new Date(value))
+
+const formatDate = (value: string) =>
+  new Intl.DateTimeFormat('en-KE', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'Africa/Nairobi',
+  }).format(new Date(value))
+
+function getDuration(start: string, end: string) {
+  const minutes = Math.max(
+    0,
+    Math.round(
+      (new Date(end).getTime() - new Date(start).getTime()) / 60000,
+    ),
+  )
+
+  const hours = Math.floor(minutes / 60)
+
+  return hours ? `${hours}h ${minutes % 60}m` : `${minutes}m`
+}
+
+function FlightCard({ result }: { result: FlightResult }) {
+  const { flight, schedule } = result
+
+  return (
+    <article className="flight-card enhanced-flight-card">
+      <img
+        className="flight-image"
+        src={getDestinationImage(flight.destination)}
+        alt={`${flight.destination} destination`}
+        loading="lazy"
+        onError={event => {
+          event.currentTarget.src = '/images/destinations/nairobi.jpg'
+        }}
+      />
+
+      <div className="flight-card-content">
+        <div className="flight-card-top">
+          <span className="flight-number">{flight.flight_number}</span>
+          <span className="flight-status">{schedule.status}</span>
+        </div>
+
+        <div className="flight-route enhanced-flight-route">
+          <div className="timeline-stop">
+            <span className="timeline-time">{formatTime(schedule.departure_at)}</span>
+            <strong>{flight.origin_code}</strong>
+            <span>{flight.origin}</span>
+            <small>Departure</small>
+          </div>
+
+          <div className="flight-timeline">
+            <span className="timeline-duration">
+              {getDuration(schedule.departure_at, schedule.arrival_at)}
+            </span>
+
+            <div className="timeline-track">
+              <span className="timeline-dot" />
+              <span className="timeline-line" />
+              <Plane size={19} />
+              <span className="timeline-line" />
+              <span className="timeline-dot" />
+            </div>
+
+            <span className="timeline-direct">Non-stop flight</span>
+          </div>
+
+          <div className="timeline-stop timeline-arrival">
+            <span className="timeline-time">{formatTime(schedule.arrival_at)}</span>
+            <strong>{flight.destination_code}</strong>
+            <span>{flight.destination}</span>
+            <small>Arrival</small>
+          </div>
+        </div>
+
+        <div className="flight-details">
+          <span><CalendarDays size={15} /> {formatDate(schedule.departure_at)}</span>
+          <span><Users size={15} /> {schedule.available_seats} seats available</span>
+          <span><Clock size={15} /> East Africa time</span>
+        </div>
+      </div>
+
+      <div className="flight-price">
+        <span>Ticket price</span>
+        <strong>KSh {Number(flight.base_price).toLocaleString('en-KE')}</strong>
+        <small>per passenger</small>
+
+        <Link
+          to={`/register?flight=${flight.id}&schedule=${schedule.id}`}
+          className="select-flight"
+        >
+          Select flight <ArrowRight size={15} />
+        </Link>
+      </div>
+    </article>
+  )
+}
+
+function FlightResultsGroup({
+  title,
+  date,
+  results,
+}: {
+  title: string
+  date: string
+  results: FlightResult[]
+}) {
+  return (
+    <section className="flight-results-group">
+      <div className="flight-group-heading">
+        <div>
+          <span className="eyebrow">{title}</span>
+          <h2>{formatDate(`${date}T12:00:00`)}</h2>
+        </div>
+
+        <span className="route-count">
+          {results.length} {results.length === 1 ? 'flight' : 'flights'}
+        </span>
+      </div>
+
+      <div className="flight-results">
+        {results.map(result => (
+          <FlightCard key={result.schedule.id} result={result} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
 function FlightsPage() {
   const location = useLocation()
   const params = new URLSearchParams(location.search)
 
   const origin = params.get('origin') || ''
   const destination = params.get('destination') || ''
-  const date = params.get('date') || ''
+
+  // Automatically search tomorrow when the user opens /flights directly.
+  const date = params.get('date') || getNairobiDate(1)
+
+  const tripType = params.get('tripType') || 'one-way'
+  const returnDate = params.get('returnDate') || ''
 
   const [results, setResults] = useState<FlightResult[]>([])
-  const [loading, setLoading] = useState(false)
+  const [returnResults, setReturnResults] = useState<FlightResult[]>([])
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [promotionIndex, setPromotionIndex] = useState(0)
-
-  const promotions = [
-    {
-      title: 'Discover the Kenyan Coast',
-      description: 'Explore Mombasa and experience the beauty of Diani Beach.',
-      image: '/images/destinations/mombasa.jpg',
-      label: 'DESTINATION HIGHLIGHT',
-    },
-    {
-      title: 'Beyond Every Destination',
-      description: 'Your next journey begins with Aqua Airways.',
-      image: destinations[1].image,
-      label: 'EXPLORE THE WORLD',
-    },
-    {
-      title: 'Plan Your Next Journey',
-      description: 'Check available flights, travel dates and schedules.',
-      image: destinations[2].image,
-      label: 'TRAVEL WITH AQUA',
-    },
-  ]
+  const [promotion, setPromotion] = useState(0)
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      setPromotionIndex(current => (current + 1) % promotions.length)
-    }, 6000)
+    const timer = window.setInterval(
+      () => setPromotion(current => (current + 1) % promotions.length),
+      6000,
+    )
 
     return () => window.clearInterval(timer)
   }, [])
 
   useEffect(() => {
-    if (!origin || !destination || !date) {
-      setResults([])
-      return
-    }
-
     let active = true
 
-    async function loadFlights() {
+    async function load() {
       setLoading(true)
       setError('')
       setResults([])
+      setReturnResults([])
 
       try {
-        const data = await searchFlights(origin, destination, date)
-        if (active) setResults(data)
+        const outbound = await searchFlights(origin, destination, date)
+
+        let inbound: FlightResult[] = []
+
+        if (tripType === 'round-trip' && returnDate && origin && destination) {
+          inbound = await searchFlights(destination, origin, returnDate)
+        }
+
+        if (active) {
+          setResults(outbound)
+          setReturnResults(inbound)
+        }
       } catch (err) {
         if (active) {
           setError(
             err instanceof Error
               ? err.message
-              : 'Unable to load flights. Please try again.',
+              : 'Unable to load flights.',
           )
         }
       } finally {
@@ -498,27 +710,15 @@ function FlightsPage() {
       }
     }
 
-    loadFlights()
+    load()
 
     return () => {
       active = false
     }
-  }, [origin, destination, date])
+  }, [origin, destination, date, tripType, returnDate])
 
-  const formatTime = (value: string) =>
-    new Intl.DateTimeFormat('en-KE', {
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: 'Africa/Nairobi',
-    }).format(new Date(value))
-
-  const formatDate = (value: string) =>
-    new Intl.DateTimeFormat('en-KE', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      timeZone: 'Africa/Nairobi',
-    }).format(new Date(value))
+  const hasRoute = Boolean(origin || destination)
+  const promo = promotions[promotion]
 
   return (
     <main className="flights-page">
@@ -530,44 +730,45 @@ function FlightsPage() {
 
       <section className="promotion-banner">
         <img
-          key={promotions[promotionIndex].image}
-          src={promotions[promotionIndex].image}
-          alt="Aqua Airways destination highlight"
+          key={promo.image}
+          src={promo.image}
+          alt="Aqua Airways destination"
           onError={event => {
             event.currentTarget.style.display = 'none'
           }}
         />
+
         <div className="promotion-overlay">
-          <span>{promotions[promotionIndex].label}</span>
-          <h2>{promotions[promotionIndex].title}</h2>
-          <p>{promotions[promotionIndex].description}</p>
+          <span>{promo.label}</span>
+          <h2>{promo.title}</h2>
+          <p>{promo.description}</p>
+
           <div className="promotion-controls">
             <button
-              type="button"
-              aria-label="Previous promotion"
-              onClick={() => setPromotionIndex(current =>
-                (current - 1 + promotions.length) % promotions.length
-              )}
+              onClick={() =>
+                setPromotion(current =>
+                  (current - 1 + promotions.length) % promotions.length,
+                )
+              }
             >
               &#8592;
             </button>
+
             <div className="promotion-dots">
-              {promotions.map((promotion, index) => (
+              {promotions.map((item, index) => (
                 <button
-                  key={promotion.title}
-                  type="button"
+                  key={item.title}
+                  className={index === promotion ? 'active' : ''}
                   aria-label={`Show promotion ${index + 1}`}
-                  className={index === promotionIndex ? 'active' : ''}
-                  onClick={() => setPromotionIndex(index)}
+                  onClick={() => setPromotion(index)}
                 />
               ))}
             </div>
+
             <button
-              type="button"
-              aria-label="Next promotion"
-              onClick={() => setPromotionIndex(current =>
-                (current + 1) % promotions.length
-              )}
+              onClick={() =>
+                setPromotion(current => (current + 1) % promotions.length)
+              }
             >
               &#8594;
             </button>
@@ -575,38 +776,40 @@ function FlightsPage() {
         </div>
       </section>
 
-      {origin && destination && date ? (
-        <div className="results-summary">
-          <div>
-            <span>FROM</span>
-            <strong>{origin}</strong>
-          </div>
-          <ArrowRight />
-          <div>
-            <span>TO</span>
-            <strong>{destination}</strong>
-          </div>
-          <div>
-            <span>DEPARTURE</span>
-            <strong>{date}</strong>
-          </div>
-          <Link to="/#flight-search" className="edit-search">Edit search</Link>
+      <div className="results-summary">
+        <div>
+          <span>FROM</span>
+          <strong>{origin || 'All cities'}</strong>
         </div>
-      ) : (
-        <div className="empty-search">
-          <Search size={28} />
-          <h2>Ready for your next journey?</h2>
-          <p>Enter your departure city, destination and travel date.</p>
-          <Link to="/#flight-search" className="primary-button">
-            Search Flights <ArrowRight size={17} />
-          </Link>
+
+        <ArrowRight />
+
+        <div>
+          <span>TO</span>
+          <strong>{destination || 'All destinations'}</strong>
         </div>
-      )}
+
+        <div>
+          <span>DEPARTURE</span>
+          <strong>{date}</strong>
+        </div>
+
+        {tripType === 'round-trip' && returnDate && (
+          <div>
+            <span>RETURN</span>
+            <strong>{returnDate}</strong>
+          </div>
+        )}
+
+        <Link to="/#flight-search" className="edit-search">
+          Edit search
+        </Link>
+      </div>
 
       {loading && (
         <div className="results-message">
           <span className="loading-spinner" />
-          <p>Searching available flights...</p>
+          <p>Searching available flights for {date}...</p>
         </div>
       )}
 
@@ -617,103 +820,55 @@ function FlightsPage() {
         </div>
       )}
 
-      {!loading && !error && origin && destination && date && results.length === 0 && (
+      {!loading && !error && results.length === 0 && (
         <div className="empty-results">
           <Plane size={35} />
-          <h2>No flights found</h2>
+          <h2>No outbound flights found</h2>
           <p>
-            We couldn't find scheduled flights for this route and date.
-            Try another date or destination.
+            No scheduled flights are available for {date}.
+            Try another date or choose a different route.
           </p>
+
           <Link to="/#flight-search" className="primary-button">
-            Search another date <ArrowRight size={17} />
+            Change search <ArrowRight size={17} />
           </Link>
         </div>
       )}
 
-      <div className="flight-results">
-        {results.map(({ flight, schedule }) => (
-          <article className="flight-card" key={schedule.id}>
-            {flight.destination_image ? (
-              <img
-                className="flight-image"
-                src={
-                  flight.destination_image.startsWith('http')
-                    ? flight.destination_image
-                    : `${window.location.origin}${flight.destination_image}`
-                }
-                alt={`${flight.destination} destination`}
-                onError={event => {
-                  event.currentTarget.style.display = 'none'
-                }}
-              />
-            ) : (
-              <div className="flight-image flight-image-placeholder">
-                <Globe2 size={35} />
-              </div>
-            )}
+      {!loading && !error && results.length > 0 && (
+        <FlightResultsGroup
+          title="OUTBOUND JOURNEY"
+          date={date}
+          results={results}
+        />
+      )}
 
-            <div className="flight-card-content">
-              <div className="flight-card-top">
-                <span className="flight-number">
-                  {flight.flight_number}
-                </span>
-                <span className="flight-status">
-                  {schedule.status}
-                </span>
-              </div>
-
-              <div className="flight-route">
-                <div>
-                  <strong>{flight.origin_code}</strong>
-                  <span>{flight.origin}</span>
-                  <time>{formatTime(schedule.departure_at)}</time>
-                </div>
-
-                <div className="route-line">
-                  <Plane size={17} />
-                  <span>Direct flight</span>
-                </div>
-
-                <div>
-                  <strong>{flight.destination_code}</strong>
-                  <span>{flight.destination}</span>
-                  <time>{formatTime(schedule.arrival_at)}</time>
-                </div>
-              </div>
-
-              <div className="flight-details">
-                <span>
-                  <CalendarDays size={15} />
-                  {formatDate(schedule.departure_at)}
-                </span>
-                <span>
-                  <Users size={15} />
-                  {schedule.available_seats} seats available
-                </span>
-                <span>
-                  <Clock size={15} />
-                  Local time: Nairobi
-                </span>
-              </div>
-            </div>
-
-            <div className="flight-price">
-              <span>From</span>
-              <strong>
-                KSh {Number(flight.base_price).toLocaleString('en-KE')}
-              </strong>
-              <small>per passenger</small>
-              <Link
-                to={`/register?flight=${flight.id}&schedule=${schedule.id}`}
-                className="select-flight"
-              >
-                Select flight <ArrowRight size={15} />
-              </Link>
-            </div>
-          </article>
+      {!loading &&
+        !error &&
+        tripType === 'round-trip' &&
+        returnDate &&
+        hasRoute &&
+        (returnResults.length > 0 ? (
+          <FlightResultsGroup
+            title="RETURN JOURNEY"
+            date={returnDate}
+            results={returnResults}
+          />
+        ) : (
+          <div className="empty-results return-empty">
+            <PlaneLanding size={32} />
+            <h2>No return flights found</h2>
+            <p>
+              No scheduled flights were found for the return date {returnDate}.
+            </p>
+          </div>
         ))}
-      </div>
+
+      {!loading && !error && !hasRoute && results.length > 0 && (
+        <p className="all-routes-note">
+          Showing available flights across all Aqua Airways routes.
+        </p>
+      )}
     </main>
   )
 }
@@ -743,10 +898,7 @@ function Footer() {
       <div className="footer-main">
         <Link to="/" className="brand footer-brand">
           <span className="brand-icon"><Plane size={22} /></span>
-          <span>
-            <strong>AQUA</strong>
-            <small>AIRWAYS</small>
-          </span>
+          <span><strong>AQUA</strong><small>AIRWAYS</small></span>
         </Link>
 
         <p>Beyond Every Destination.</p>
@@ -761,9 +913,7 @@ function Footer() {
       </div>
 
       <div className="footer-bottom">
-        <span>
-          © {new Date().getFullYear()} Aqua Airways. All rights reserved.
-        </span>
+        <span>© {new Date().getFullYear()} Aqua Airways. All rights reserved.</span>
         <span>Beyond Every Destination.</span>
       </div>
     </footer>
@@ -819,12 +969,10 @@ function AppLayout() {
   )
 }
 
-function App() {
+export default function App() {
   return (
     <BrowserRouter>
       <AppLayout />
     </BrowserRouter>
   )
 }
-
-export default App
