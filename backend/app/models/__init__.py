@@ -1,4 +1,3 @@
-
 from app.models.user import User
 from app.models.flight import Flight
 from app.models.flight_schedule import FlightSchedule
@@ -6,6 +5,7 @@ from app.models.booking import Booking
 from app.models.payment import Payment
 from app.models.payment_attempt import PaymentAttempt
 from app.models.passenger_rating import PassengerRating
+from app.models.aqua_reward_claim import AquaRewardClaim
 
 __all__ = [
     "User",
@@ -15,5 +15,5 @@ __all__ = [
     "Payment",
     "PaymentAttempt",
     "PassengerRating",
+    "AquaRewardClaim",
 ]
-

@@ -14,6 +14,8 @@ class User(db.Model):
     role = db.Column(db.String(20), nullable=False, default="passenger")
     is_active = db.Column(db.Boolean, default=True, nullable=False)
 
+    profile_image = db.Column(db.String(255), nullable=True)
+
     created_at = db.Column(
         db.DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -22,6 +24,12 @@ class User(db.Model):
 
     bookings = db.relationship("Booking", back_populates="user")
     ratings = db.relationship("PassengerRating", back_populates="user")
+
+    reward_claims = db.relationship(
+        "AquaRewardClaim",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
 
     def __repr__(self):
         return f"<User {self.email}>"

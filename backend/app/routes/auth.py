@@ -15,7 +15,8 @@ def user_data(user):
         "full_name": user.full_name,
         "email": user.email,
         "role": user.role,
-        "is_active": user.is_active
+        "is_active": user.is_active,
+        "profile_image": user.profile_image
     }
 
 
@@ -39,7 +40,7 @@ def register():
             "message": "Full name, email and password are required."
         }), 400
 
-    if not isinstance(full_name, str) or not isinstance(email, str) or not isinstance(password, str):
+    if not all(isinstance(value, str) for value in [full_name, email, password]):
         return jsonify({
             "status": "error",
             "message": "Invalid registration details."

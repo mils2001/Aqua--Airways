@@ -16,6 +16,7 @@ from app.routes.auth import auth_bp
 from app.routes.bookings import bookings_bp
 from app.routes.payments import payments_bp
 from app.routes.ratings import ratings_bp
+from app.routes.profile import profile_bp
 
 
 def create_app(config_class=Config):
@@ -35,7 +36,10 @@ def create_app(config_class=Config):
         app,
         resources={
             r"/api/*": {
-                "origins": ["http://localhost:5173"]
+                "origins": [
+                    "http://localhost:5173",
+                    "http://localhost:5174"
+                ]
             }
         }
     )
@@ -47,5 +51,6 @@ def create_app(config_class=Config):
     app.register_blueprint(bookings_bp)
     app.register_blueprint(payments_bp)
     app.register_blueprint(ratings_bp)
+    app.register_blueprint(profile_bp)
 
     return app
